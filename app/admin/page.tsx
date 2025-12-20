@@ -2,242 +2,197 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getUserProfile } from '@/lib/auth';
 import { supabase } from '@/lib/supabase/client';
+import { getUserProfile } from '@/lib/auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import type { Order, Product, Profile } from '@/lib/types';
-import { toast } from 'sonner';
 
 export default function AdminPage() {
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [users, setUsers] = useState<Profile[]>([]);
-  const [loading, setLoading] = useState(true);
   const router = useRouter();
 
+  const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState<'orders' | 'products' | 'users'>('orders');
+
+  const [orders, setOrders] = useState<any[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
+  const [messagesCount, setMessagesCount] = useState(0);
+
   useEffect(() => {
-    loadAdminData();
+    loadAdmin();
   }, []);
 
-  async function loadAdminData() {
-    try {
-      const userProfile = await getUserProfile();
-      if (!userProfile || userProfile.role !== 'admin') {
-        router.push('/');
-        return;
-      }
-
-      setProfile(userProfile);
-
-      const [ordersData, productsData, usersData] = await Promise.all([
-        supabase.from('orders').select('*'),
-        supabase.from('products').select('*'),
-        supabase.from('profiles').select('*'),
-      ]);
-
-      if (ordersData.data) setOrders(ordersData.data);
-      if (productsData.data) setProducts(productsData.data);
-      if (usersData.data) setUsers(usersData.data);
-    } catch (error) {
-      console.error('Error loading admin data:', error);
-      toast.error('Failed to load admin data');
-    } finally {
-      setLoading(false);
+  async function loadAdmin() {
+    const profile = await getUserProfile();
+    if (!profile || profile.role !== 'admin') {
+      router.push('/');
+      return;
     }
+
+    const [
+      ordersRes,
+      productsRes,
+      usersRes,
+      messagesRes,
+    ] = await Promise.all([
+      supabase.from('orders').select('*').eq('is_deleted', false),
+      supabase.from('products').select('*'),
+      supabase.from('profiles').select('*'),
+      supabase
+        .from('contact_messages')
+        .select('*', { count: 'exact', head: true }),
+    ]);
+
+    if (ordersRes.data) setOrders(ordersRes.data);
+    if (productsRes.data) setProducts(productsRes.data);
+    if (usersRes.data) setUsers(usersRes.data);
+    if (messagesRes.count !== null)
+      setMessagesCount(messagesRes.count);
+
+    setLoading(false);
   }
 
-  const totalSales = orders.reduce((sum, order) => sum + order.total, 0);
-  const totalOrders = orders.length;
-  const totalUsers = users.filter((u) => u.role === 'user').length;
-  const totalSellers = users.filter((u) => u.role === 'seller').length;
+  async function updateOrderStatus(id: string, status: string) {
+    await supabase.from('orders').update({ status }).eq('id', id);
+    loadAdmin();
+  }
+
+  async function deleteOrder(id: string) {
+    await supabase.from('orders').update({ is_deleted: true }).eq('id', id);
+    loadAdmin();
+  }
 
   if (loading) {
-    return (
-      <div className="flex justify-center items-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF7A2D]"></div>
-      </div>
-    );
-  }
-
-  if (!profile || profile.role !== 'admin') {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-lg text-gray-600">Access denied</p>
-      </div>
-    );
+    return <p className="text-center mt-20">Loading...</p>;
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F7FA]">
-      <div className="container mx-auto px-4 py-12">
-        <h1 className="text-3xl font-bold mb-8">Admin Dashboard</h1>
+    <div className="container mx-auto px-4 py-10">
+      {/* HEADER */}
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Admin Dashboard</h1>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">
-                Total Sales
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold">Rs. {totalSales.toLocaleString()}</p>
-            </CardContent>
-          </Card>
+        <div className="flex gap-3">
+          <Button onClick={() => router.push('/admin/analytics')}>
+            📊 Analytics
+          </Button>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">
-                Total Orders
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold">{totalOrders}</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">
-                Total Users
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold">{totalUsers}</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">
-                Total Sellers
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold">{totalSellers}</p>
-            </CardContent>
-          </Card>
+          <Button onClick={() => router.push('/admin/messages')}>
+            📩 Messages ({messagesCount})
+          </Button>
         </div>
-
-        <Tabs defaultValue="orders" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="orders">Orders ({orders.length})</TabsTrigger>
-            <TabsTrigger value="products">Products ({products.length})</TabsTrigger>
-            <TabsTrigger value="users">Users ({users.length})</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="orders" className="space-y-4">
-            {orders.length === 0 ? (
-              <Card>
-                <CardContent className="pt-6 text-center">
-                  <p className="text-gray-500">No orders yet</p>
-                </CardContent>
-              </Card>
-            ) : (
-              orders.map((order) => (
-                <Card key={order.id}>
-                  <CardContent className="pt-6">
-                    <div className="grid md:grid-cols-5 gap-4 text-sm">
-                      <div>
-                        <p className="text-gray-600">Order ID</p>
-                        <p className="font-mono">{order.id.slice(0, 8)}...</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-600">Total</p>
-                        <p className="font-bold">Rs. {order.total.toLocaleString()}</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-600">Status</p>
-                        <p className="capitalize">{order.status}</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-600">Payment</p>
-                        <p className="capitalize">{order.payment_status}</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-600">Items</p>
-                        <p>{order.items.length} items</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-            )}
-          </TabsContent>
-
-          <TabsContent value="products" className="space-y-4">
-            {products.length === 0 ? (
-              <Card>
-                <CardContent className="pt-6 text-center">
-                  <p className="text-gray-500">No products yet</p>
-                </CardContent>
-              </Card>
-            ) : (
-              products.map((product) => (
-                <Card key={product.id}>
-                  <CardContent className="pt-6">
-                    <div className="grid md:grid-cols-4 gap-4 text-sm">
-                      <div>
-                        <p className="text-gray-600">Product</p>
-                        <p className="font-medium">{product.name}</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-600">Price</p>
-                        <p className="font-bold">Rs. {product.price.toLocaleString()}</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-600">Stock</p>
-                        <p>{product.stock} units</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-600">Category</p>
-                        <p>{product.category_id || 'Uncategorized'}</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-            )}
-          </TabsContent>
-
-          <TabsContent value="users" className="space-y-4">
-            {users.length === 0 ? (
-              <Card>
-                <CardContent className="pt-6 text-center">
-                  <p className="text-gray-500">No users yet</p>
-                </CardContent>
-              </Card>
-            ) : (
-              users.map((user) => (
-                <Card key={user.id}>
-                  <CardContent className="pt-6">
-                    <div className="grid md:grid-cols-4 gap-4 text-sm">
-                      <div>
-                        <p className="text-gray-600">Name</p>
-                        <p className="font-medium">{user.name}</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-600">Role</p>
-                        <p className="capitalize font-medium">{user.role}</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-600">Phone</p>
-                        <p>{user.phone || 'Not provided'}</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-600">Joined</p>
-                        <p>{new Date(user.created_at).toLocaleDateString()}</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-            )}
-          </TabsContent>
-        </Tabs>
       </div>
+
+      {/* TABS */}
+      <Tabs value={tab} onValueChange={v => setTab(v as any)}>
+        <TabsList className="grid grid-cols-3 mb-6">
+          <TabsTrigger value="orders">Orders</TabsTrigger>
+          <TabsTrigger value="products">Products</TabsTrigger>
+          <TabsTrigger value="users">Users</TabsTrigger>
+        </TabsList>
+
+        {/* ORDERS */}
+        <TabsContent value="orders">
+          {orders.map(o => (
+            <Card key={o.id} className="mb-3">
+              <CardContent className="grid grid-cols-6 gap-3 pt-4 text-sm items-center">
+                <span>{o.id.slice(0, 6)}...</span>
+                <span>Rs. {o.total}</span>
+
+                <select
+                  value={o.status}
+                  onChange={e =>
+                    updateOrderStatus(o.id, e.target.value)
+                  }
+                  className="border px-2 py-1 rounded"
+                >
+                  <option>pending</option>
+                  <option>processing</option>
+                  <option>completed</option>
+                  <option>cancelled</option>
+                </select>
+
+                <span>{o.payment_status}</span>
+                <span>{o.items?.length || 0} items</span>
+
+                <Button
+                  variant="destructive"
+                  onClick={() => deleteOrder(o.id)}
+                >
+                  Delete
+                </Button>
+              </CardContent>
+            </Card>
+          ))}
+        </TabsContent>
+
+        {/* PRODUCTS */}
+        <TabsContent value="products">
+          <Card>
+            <CardHeader>
+              <CardTitle>Products</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="mb-3 font-medium">
+                Total Products: {products.length}
+              </p>
+
+              <table className="w-full text-sm border">
+                <thead>
+                  <tr className="border-b bg-gray-50">
+                    <th className="p-2 text-left">Name</th>
+                    <th className="p-2 text-left">Price</th>
+                    <th className="p-2 text-left">Stock</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {products.map(p => (
+                    <tr key={p.id} className="border-b">
+                      <td className="p-2">{p.name}</td>
+                      <td className="p-2">Rs. {p.price}</td>
+                      <td className="p-2">{p.stock}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* USERS */}
+        <TabsContent value="users">
+          <Card>
+            <CardHeader>
+              <CardTitle>Users</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="mb-3 font-medium">
+                Total Users: {users.length}
+              </p>
+
+              <table className="w-full text-sm border">
+                <thead>
+                  <tr className="border-b bg-gray-50">
+                    <th className="p-2 text-left">Name</th>
+                    <th className="p-2 text-left">Email</th>
+                    <th className="p-2 text-left">Role</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map(u => (
+                    <tr key={u.id} className="border-b">
+                      <td className="p-2">{u.name}</td>
+                      <td className="p-2">{u.email}</td>
+                      <td className="p-2 capitalize">{u.role}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

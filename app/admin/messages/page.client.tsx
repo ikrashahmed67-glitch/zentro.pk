@@ -2,56 +2,72 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { Button } from '@/components/ui/button';
 
-export default function AdminMessagesClient() {
-  const [messages, setMessages] = useState<any[]>([]);
+type Message = {
+  id: string;
+  full_name: string;
+  email: string;
+  subject: string | null;
+  message: string;
+  created_at: string;
+};
+
+export default function MessagesClient() {
+  const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function loadMessages() {
-      const { data } = await supabase
-        .from('contact_messages')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      setMessages(data || []);
-      setLoading(false);
-    }
-
-    loadMessages();
+    fetchMessages();
   }, []);
 
-  if (loading) {
-    return <div style={{ padding: 20 }}>Loading messages...</div>;
+  async function fetchMessages() {
+    const { data, error } = await supabase
+      .from('contact_messages')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (!error && data) {
+      setMessages(data);
+    }
+    setLoading(false);
+  }
+
+  async function deleteMessage(id: string) {
+    await supabase.from('contact_messages').delete().eq('id', id);
+    fetchMessages();
+  }
+
+  if (loading) return <p>Loading messages...</p>;
+
+  if (messages.length === 0) {
+    return <p>No messages yet.</p>;
   }
 
   return (
-    <div style={{ padding: 20 }}>
-      <h1 style={{ fontSize: 24, fontWeight: 'bold', marginBottom: 20 }}>
-        Contact Messages
-      </h1>
-
-      {messages.length === 0 && <p>No messages yet.</p>}
-
+    <div className="space-y-4">
       {messages.map((msg) => (
-        <div
-          key={msg.id}
-          style={{
-            border: '1px solid #ddd',
-            borderRadius: 6,
-            padding: 12,
-            marginBottom: 12,
-            background: '#fff',
-          }}
-        >
-          <p><b>Name:</b> {msg.name}</p>
-          <p><b>Email:</b> {msg.email}</p>
-          <p><b>Subject:</b> {msg.subject}</p>
-          <p style={{ marginTop: 8 }}>{msg.message}</p>
+        <div key={msg.id} className="border rounded p-4">
+          <p><strong>Name:</strong> {msg.full_name}</p>
+          <p><strong>Email:</strong> {msg.email}</p>
+          <p><strong>Subject:</strong> {msg.subject || '-'}</p>
+          <p className="mt-2">{msg.message}</p>
 
-          <p style={{ fontSize: 12, color: '#666', marginTop: 8 }}>
-            {new Date(msg.created_at).toLocaleString()}
-          </p>
+          <div className="flex gap-2 mt-3">
+            <Button
+              variant="destructive"
+              onClick={() => deleteMessage(msg.id)}
+            >
+              Delete
+            </Button>
+
+            <a
+              href={`mailto:${msg.email}?subject=Reply`}
+              className="text-sm underline"
+            >
+              Reply via Email
+            </a>
+          </div>
         </div>
       ))}
     </div>

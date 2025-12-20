@@ -1,12 +1,10 @@
-'use client';
-
-import dynamic from 'next/dynamic';
-
-const AdminMessagesClient = dynamic(
-  () => import('./page.client'),
-  { ssr: false }
-);
+import MessagesClient from "./page.client";
 
 export default function AdminMessagesPage() {
-  return <AdminMessagesClient />;
+  return (
+    <main className="p-6">
+      <h1 className="text-2xl font-bold mb-4">Contact Messages</h1>
+      <MessagesClient />
+    </main>
+  );
 }
