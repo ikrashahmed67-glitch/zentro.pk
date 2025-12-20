@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -21,14 +22,27 @@ export default function ContactPage() {
     e.preventDefault();
     setSubmitting(true);
 
-    try {
-      toast.success('Message sent! We will get back to you soon.');
-      setFormData({ name: '', email: '', subject: '', message: '' });
-    } catch (error) {
+    const { error } = await supabase.from('contact_messages').insert({
+      full_name: formData.name,
+      email: formData.email,
+      subject: formData.subject,
+      message: formData.message,
+    });
+
+    if (error) {
+      console.error(error);
       toast.error('Failed to send message');
-    } finally {
-      setSubmitting(false);
+    } else {
+      toast.success('Message sent! We will get back to you soon.');
+      setFormData({
+        name: '',
+        email: '',
+        subject: '',
+        message: '',
+      });
     }
+
+    setSubmitting(false);
   }
 
   return (
@@ -46,9 +60,9 @@ export default function ContactPage() {
             <div className="space-y-6">
               <Card>
                 <CardContent className="pt-6 flex gap-4">
-                  <MapPin className="h-6 w-6 text-[#FF7A2D] flex-shrink-0 mt-1" />
+                  <MapPin className="h-6 w-6 text-[#FF7A2D] mt-1" />
                   <div>
-                    <h3 className="font-semibold mb-1">Address</h3>
+                    <h3 className="font-semibold">Address</h3>
                     <p className="text-gray-600">Karachi, Pakistan</p>
                   </div>
                 </CardContent>
@@ -56,9 +70,9 @@ export default function ContactPage() {
 
               <Card>
                 <CardContent className="pt-6 flex gap-4">
-                  <Phone className="h-6 w-6 text-[#FF7A2D] flex-shrink-0 mt-1" />
+                  <Phone className="h-6 w-6 text-[#FF7A2D] mt-1" />
                   <div>
-                    <h3 className="font-semibold mb-1">Phone</h3>
+                    <h3 className="font-semibold">Phone</h3>
                     <p className="text-gray-600">+92 300 1234567</p>
                   </div>
                 </CardContent>
@@ -66,9 +80,9 @@ export default function ContactPage() {
 
               <Card>
                 <CardContent className="pt-6 flex gap-4">
-                  <Mail className="h-6 w-6 text-[#FF7A2D] flex-shrink-0 mt-1" />
+                  <Mail className="h-6 w-6 text-[#FF7A2D] mt-1" />
                   <div>
-                    <h3 className="font-semibold mb-1">Email</h3>
+                    <h3 className="font-semibold">Email</h3>
                     <p className="text-gray-600">support@zentro.pk</p>
                   </div>
                 </CardContent>
@@ -76,11 +90,11 @@ export default function ContactPage() {
 
               <Card>
                 <CardContent className="pt-6 flex gap-4">
-                  <Clock className="h-6 w-6 text-[#FF7A2D] flex-shrink-0 mt-1" />
+                  <Clock className="h-6 w-6 text-[#FF7A2D] mt-1" />
                   <div>
-                    <h3 className="font-semibold mb-1">Business Hours</h3>
-                    <p className="text-gray-600">Monday - Friday: 9 AM - 6 PM</p>
-                    <p className="text-gray-600">Saturday - Sunday: 10 AM - 4 PM</p>
+                    <h3 className="font-semibold">Business Hours</h3>
+                    <p className="text-gray-600">Mon - Fri: 9 AM - 6 PM</p>
+                    <p className="text-gray-600">Sat - Sun: 10 AM - 4 PM</p>
                   </div>
                 </CardContent>
               </Card>
@@ -92,60 +106,48 @@ export default function ContactPage() {
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-1">
-                      Full Name
-                    </label>
-                    <Input
-                      value={formData.name}
-                      onChange={(e) =>
-                        setFormData({ ...formData, name: e.target.value })
-                      }
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">
-                      Email Address
-                    </label>
-                    <Input
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) =>
-                        setFormData({ ...formData, email: e.target.value })
-                      }
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">
-                      Subject
-                    </label>
-                    <Input
-                      value={formData.subject}
-                      onChange={(e) =>
-                        setFormData({ ...formData, subject: e.target.value })
-                      }
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">
-                      Message
-                    </label>
-                    <Textarea
-                      value={formData.message}
-                      onChange={(e) =>
-                        setFormData({ ...formData, message: e.target.value })
-                      }
-                      rows={5}
-                      required
-                    />
-                  </div>
+                  <Input
+                    placeholder="Full Name"
+                    value={formData.name}
+                    onChange={(e) =>
+                      setFormData({ ...formData, name: e.target.value })
+                    }
+                    required
+                  />
+
+                  <Input
+                    type="email"
+                    placeholder="Email Address"
+                    value={formData.email}
+                    onChange={(e) =>
+                      setFormData({ ...formData, email: e.target.value })
+                    }
+                    required
+                  />
+
+                  <Input
+                    placeholder="Subject"
+                    value={formData.subject}
+                    onChange={(e) =>
+                      setFormData({ ...formData, subject: e.target.value })
+                    }
+                    required
+                  />
+
+                  <Textarea
+                    placeholder="Your Message"
+                    rows={5}
+                    value={formData.message}
+                    onChange={(e) =>
+                      setFormData({ ...formData, message: e.target.value })
+                    }
+                    required
+                  />
+
                   <Button
                     type="submit"
                     disabled={submitting}
-                    className="w-full bg-[#FF7A2D] hover:bg-[#FF7A2D]/90"
+                    className="w-full bg-[#FF7A2D]"
                   >
                     {submitting ? 'Sending...' : 'Send Message'}
                   </Button>
