@@ -13,31 +13,38 @@ import { Star, ShoppingCart } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 
 export default function ProductPage() {
+  const router = useRouter();
   const params = useParams();
-  const productId = params.id as string;
+
+  const productId = params?.id as string | undefined;
+
   const [product, setProduct] = useState<Product | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(true);
+
   const { addToCart } = useCart();
-  const router = useRouter();
 
   useEffect(() => {
+    if (!productId) return;
     loadProduct();
   }, [productId]);
 
   async function loadProduct() {
+    if (!productId) return;
+
     try {
       const { data: productData, error: productError } = await supabase
         .from('products')
         .select('*')
         .eq('id', productId)
-        .maybeSingle();
+        .single();
 
       if (productError) throw productError;
 
       if (!productData) {
-        router.push('/');
+        toast.error('Product not found');
+        setLoading(false);
         return;
       }
 
@@ -49,23 +56,27 @@ export default function ProductPage() {
         .eq('product_id', productId);
 
       if (reviewsError) throw reviewsError;
+
       setReviews(reviewsData || []);
-    } catch (error) {
-      console.error('Error loading product:', error);
-      router.push('/');
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to load product');
     } finally {
       setLoading(false);
     }
   }
 
   function handleAddToCart() {
-    if (product && product.stock > 0) {
-      addToCart(product, quantity);
-      toast.success(`Added ${quantity} item(s) to cart!`);
-      setQuantity(1);
-    } else {
+    if (!product) return;
+
+    if (product.stock <= 0) {
       toast.error('Product out of stock');
+      return;
     }
+
+    addToCart(product, quantity);
+    toast.success(`Added ${quantity} item(s) to cart`);
+    setQuantity(1);
   }
 
   if (loading) {
@@ -84,9 +95,12 @@ export default function ProductPage() {
     );
   }
 
-  const avgRating = reviews.length > 0
-    ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
-    : 0;
+  const avgRating =
+    reviews.length > 0
+      ? (
+          reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+        ).toFixed(1)
+      : '0';
 
   return (
     <div className="min-h-screen bg-[#F5F7FA]">
@@ -107,7 +121,7 @@ export default function ProductPage() {
             <div>
               <h1 className="text-3xl font-bold mb-2">{product.name}</h1>
               <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1">
+                <div className="flex gap-1">
                   {[...Array(5)].map((_, i) => (
                     <Star
                       key={i}
@@ -130,7 +144,7 @@ export default function ProductPage() {
             </div>
 
             <div className="bg-blue-50 p-4 rounded-lg">
-              <p className="text-sm text-gray-600 mb-2">
+              <p className="text-sm text-gray-600">
                 <strong>Stock:</strong> {product.stock} units available
               </p>
               {product.stock < 10 && product.stock > 0 && (
@@ -142,27 +156,42 @@ export default function ProductPage() {
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-2">Quantity</label>
+                <label className="block text-sm font-medium mb-2">
+                  Quantity
+                </label>
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
-                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                    onClick={() =>
+                      setQuantity((q) => Math.max(1, q - 1))
+                    }
                   >
                     -
                   </Button>
+
                   <Input
                     type="number"
-                    min="1"
+                    min={1}
                     max={product.stock}
                     value={quantity}
                     onChange={(e) =>
-                      setQuantity(Math.min(product.stock, Math.max(1, parseInt(e.target.value) || 1)))
+                      setQuantity(
+                        Math.min(
+                          product.stock,
+                          Math.max(1, Number(e.target.value) || 1)
+                        )
+                      )
                     }
                     className="w-20 text-center"
                   />
+
                   <Button
                     variant="outline"
-                    onClick={() => setQuantity(Math.min(product.stock, quantity + 1))}
+                    onClick={() =>
+                      setQuantity((q) =>
+                        Math.min(product.stock, q + 1)
+                      )
+                    }
                   >
                     +
                   </Button>
@@ -181,7 +210,7 @@ export default function ProductPage() {
 
             <div className="border-t pt-6">
               <h3 className="font-semibold mb-2">Description</h3>
-              <p className="text-gray-600 leading-relaxed">{product.description}</p>
+              <p className="text-gray-600">{product.description}</p>
             </div>
           </div>
         </div>
@@ -193,23 +222,19 @@ export default function ProductPage() {
               {reviews.map((review) => (
                 <Card key={review.id}>
                   <CardContent className="pt-6">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <div className="flex items-center gap-2 mb-2">
-                          {[...Array(5)].map((_, i) => (
-                            <Star
-                              key={i}
-                              className={`h-4 w-4 ${
-                                i < review.rating
-                                  ? 'fill-yellow-400 text-yellow-400'
-                                  : 'text-gray-300'
-                              }`}
-                            />
-                          ))}
-                        </div>
-                        <p className="text-gray-700">{review.comment}</p>
-                      </div>
+                    <div className="flex gap-1 mb-2">
+                      {[...Array(5)].map((_, i) => (
+                        <Star
+                          key={i}
+                          className={`h-4 w-4 ${
+                            i < review.rating
+                              ? 'fill-yellow-400 text-yellow-400'
+                              : 'text-gray-300'
+                          }`}
+                        />
+                      ))}
                     </div>
+                    <p className="text-gray-700">{review.comment}</p>
                   </CardContent>
                 </Card>
               ))}

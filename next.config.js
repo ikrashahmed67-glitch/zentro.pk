@@ -11,7 +11,7 @@ const nextConfig = {
       },
     ],
   },
-  output: 'standalone', // 🔥 IMPORTANT FOR VERCEL
+  output: 'standalone',
 };
 
 module.exports = nextConfig;

@@ -56,48 +56,59 @@ export default function CheckoutPage() {
     );
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!user) return;
-
-    setSubmitting(true);
-
-    try {
-      const orderData: Order = {
-        id: '',
-        user_id: user.id,
-        items: cart.map((item) => ({
-          product_id: item.product.id,
-          name: item.product.name,
-          price: item.product.price,
-          quantity: item.quantity,
-          image: item.product.image,
-        })),
-        total: cartTotal,
-        status: 'pending',
-        payment_method: paymentMethod as 'cod' | 'easypaisa' | 'jazzcash',
-        payment_status: 'pending',
-        shipping_address: formData,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-
-      const { data, error } = await supabase
-        .from('orders')
-        .insert([orderData])
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      clearCart();
-      router.push(`/order-success?orderId=${data.id}`);
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to create order');
-    } finally {
-      setSubmitting(false);
-    }
+ async function handleSubmit(e: React.FormEvent) {
+  e.preventDefault();
+  if (!user?.id) {
+    toast.error("Please login first");
+    return;
   }
+
+  setSubmitting(true);
+
+  try {
+    // CREATE ORDER
+    const { data: order, error: orderError } = await supabase
+      .from("orders")
+      .insert({
+        user_id: user.id,
+        shipping_name: formData.name,
+        shipping_address: formData.address,
+        shipping_city: formData.city,
+        shipping_zip: formData.postal_code,
+        shipping_country: "Pakistan",
+        total_amount: cartTotal,
+        payment_method: paymentMethod,
+        status: "pending",
+      })
+      .select()
+      .single();
+
+    if (orderError) throw orderError;
+
+    // CREATE ORDER ITEMS
+    const orderItems = cart.map((item) => ({
+      order_id: order.id,
+      product_id: item.product.id,
+      quantity: item.quantity,
+      unit_price: item.product.price,
+    }));
+
+    const { error: itemsError } = await supabase
+      .from("order_items")
+      .insert(orderItems);
+
+    if (itemsError) throw itemsError;
+
+    clearCart();
+    router.push(`/order-success?orderId=${order.id}`);
+  } catch (error: any) {
+    console.error(error);
+    toast.error(error.message || "Failed to place order");
+  } finally {
+    setSubmitting(false);
+  }
+}
+
 
   if (loading) {
     return (
