@@ -87,10 +87,41 @@ export default function AccountPage() {
         <h1 className="text-3xl font-bold mb-8">My Account</h1>
 
         <Tabs defaultValue="profile" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList
+            className={`grid w-full ${profile?.role === 'admin' ? 'grid-cols-3' : 'grid-cols-2'
+              }`}
+          >
             <TabsTrigger value="profile">Profile</TabsTrigger>
             <TabsTrigger value="orders">Orders</TabsTrigger>
+
+            {profile?.role === 'admin' && (
+              <TabsTrigger value="admin">Admin</TabsTrigger>
+            )}
           </TabsList>
+
+          {profile?.role === 'admin' && (
+            <TabsContent value="admin">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Admin Panel</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-gray-600">
+                    Welcome Admin! You have access to dashboard & analytics.
+                  </p>
+
+                  <Button
+                    onClick={() => router.push('/admin')}
+                    className="bg-[#0F172A] hover:bg-[#0F172A]/90"
+                  >
+                    Go to Admin Dashboard
+                  </Button>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )}
+
+
 
           <TabsContent value="profile" className="space-y-6">
             <Card>
